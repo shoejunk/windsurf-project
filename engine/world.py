@@ -2,6 +2,9 @@ import pygame
 from typing import List, Optional, Tuple
 from .core import Entity, Component
 from .physics import PhysicsComponent
+import json
+import os
+import random
 
 class Wall(Entity):
     def __init__(self, x: float, y: float, width: float, height: float, 
@@ -14,25 +17,30 @@ class Wall(Entity):
         self.health = 100 if destructible else float('inf')
         
     def get_rect(self) -> pygame.Rect:
-        return pygame.Rect(self.x - self.width/2, self.y - self.height/2, 
+        """Get collision rectangle in world coordinates"""
+        return pygame.Rect(self.x - self.width/2, self.y - self.height/2,
                          self.width, self.height)
-        
+                         
     def take_damage(self, amount: float) -> bool:
         """Returns True if wall is destroyed"""
-        if not self.destructible:
-            return False
-        self.health -= amount
-        if self.health <= 0:
-            return True
-        # Darken color as wall takes damage
-        damage_factor = self.health / 100
-        self.color = tuple(int(c * damage_factor) for c in (200, 150, 150))
+        if self.destructible:
+            self.health -= amount
+            if self.health <= 0:
+                return True
         return False
-    
-    def render(self, screen: pygame.Surface) -> None:
-        rect = self.get_rect()
+        
+    def render(self, screen: pygame.Surface, camera_x: float, camera_y: float) -> None:
+        """Render wall with camera offset"""
+        # Convert world coordinates to screen coordinates
+        screen_x = self.x - camera_x - self.width/2
+        screen_y = self.y - camera_y - self.height/2
+        
+        # Get rect in screen coordinates
+        rect = pygame.Rect(screen_x, screen_y, self.width, self.height)
+        
+        # Draw wall
         pygame.draw.rect(screen, self.color, rect)
-        # Add a darker outline
+        # Draw border
         pygame.draw.rect(screen, (max(0, self.color[0]-30), 
                                 max(0, self.color[1]-30), 
                                 max(0, self.color[2]-30)), rect, 2)
@@ -43,18 +51,72 @@ class LandingPad:
         self.y = y
         self.width = width
         self.height = height
-        self.color = (0, 255, 0)  # Green for landing pads
-        self.surface_height = y - height/2  # The top surface of the pad
+        
+        # Create landing pad sprite
+        sprite_surface = pygame.Surface((width, height), pygame.SRCALPHA)
+        
+        # Base platform (dark gray)
+        platform_color = (50, 50, 50)
+        platform_rect = pygame.Rect(0, 0, width, height)
+        pygame.draw.rect(sprite_surface, platform_color, platform_rect)
+        
+        # Landing markers (yellow)
+        marker_color = (255, 255, 0)
+        marker_width = 10
+        # Left marker
+        pygame.draw.rect(sprite_surface, marker_color, 
+                        pygame.Rect(0, 0, marker_width, height))
+        # Right marker
+        pygame.draw.rect(sprite_surface, marker_color, 
+                        pygame.Rect(width - marker_width, 0, marker_width, height))
+        
+        # H symbol (white)
+        h_color = (255, 255, 255)
+        h_width = width // 3
+        h_height = height - 10
+        h_x = (width - h_width) // 2
+        h_y = 5
+        
+        # Vertical lines of H
+        pygame.draw.rect(sprite_surface, h_color, 
+                        pygame.Rect(h_x, h_y, 4, h_height))
+        pygame.draw.rect(sprite_surface, h_color, 
+                        pygame.Rect(h_x + h_width - 4, h_y, 4, h_height))
+        # Horizontal line of H
+        pygame.draw.rect(sprite_surface, h_color, 
+                        pygame.Rect(h_x, h_y + h_height//2 - 2, h_width, 4))
+                        
+        self.sprite = sprite_surface
         
     def get_rect(self) -> pygame.Rect:
-        return pygame.Rect(self.x - self.width/2, self.y - self.height/2, 
+        """Get collision rectangle in world coordinates"""
+        return pygame.Rect(self.x - self.width/2, self.y - self.height/2,
                          self.width, self.height)
                          
+    def check_landing(self, entity_rect: pygame.Rect) -> bool:
+        """Check if the entity can land on this pad"""
+        pad_rect = self.get_rect()
+        
+        # Must be above the pad
+        if entity_rect.bottom < pad_rect.top:
+            return False
+            
+        # Must be within horizontal bounds
+        if (entity_rect.centerx < pad_rect.left or 
+            entity_rect.centerx > pad_rect.right):
+            return False
+            
+        # Must be close to the pad surface
+        if abs(entity_rect.bottom - pad_rect.top) > 10:
+            return False
+            
+        return True
+        
     def is_safe_landing(self, entity_rect: pygame.Rect, velocity_y: float) -> bool:
         """Check if the entity is landing safely from above"""
         # Check if entity is near the top surface
         entity_bottom = entity_rect.bottom
-        if abs(entity_bottom - self.surface_height) > 5:  # Small tolerance for landing
+        if abs(entity_bottom - (self.y - self.height/2)) > 5:  # Small tolerance for landing
             return False
             
         # Check if entity is horizontally aligned
@@ -62,31 +124,57 @@ class LandingPad:
         return (entity_rect.left >= pad_rect.left and 
                 entity_rect.right <= pad_rect.right)
         
-    def render(self, screen: pygame.Surface) -> None:
-        rect = self.get_rect()
-        pygame.draw.rect(screen, self.color, rect)
-        # Draw a white H on the landing pad
-        line_width = max(2, int(self.width * 0.1))
-        # Vertical lines of H
-        pygame.draw.line(screen, (255, 255, 255),
-                        (rect.left + self.width * 0.2, rect.top + self.height * 0.2),
-                        (rect.left + self.width * 0.2, rect.top + self.height * 0.8),
-                        line_width)
-        pygame.draw.line(screen, (255, 255, 255),
-                        (rect.right - self.width * 0.2, rect.top + self.height * 0.2),
-                        (rect.right - self.width * 0.2, rect.top + self.height * 0.8),
-                        line_width)
-        # Horizontal line of H
-        pygame.draw.line(screen, (255, 255, 255),
-                        (rect.left + self.width * 0.2, rect.top + self.height * 0.5),
-                        (rect.right - self.width * 0.2, rect.top + self.height * 0.5),
-                        line_width)
+    def render(self, screen: pygame.Surface, camera_x: float, camera_y: float) -> None:
+        """Render landing pad with camera offset"""
+        screen_x = self.x - camera_x - self.width/2
+        screen_y = self.y - camera_y - self.height/2
+        screen.blit(self.sprite, (screen_x, screen_y))
 
 class World:
-    def __init__(self):
+    def __init__(self, width: int = 800, height: int = 600):
+        self.width = width
+        self.height = height
         self.walls: List[Wall] = []
         self.landing_pads: List[LandingPad] = []
         
+    def load_level(self, level_path: str) -> None:
+        """Load a level from a JSON file"""
+        if not os.path.exists(level_path):
+            raise FileNotFoundError(f"Level file not found: {level_path}")
+            
+        with open(level_path, 'r') as f:
+            level_data = json.load(f)
+            
+        # Set world dimensions
+        self.width = level_data.get('width', 800)
+        self.height = level_data.get('height', 600)
+        
+        # Clear existing objects
+        self.walls.clear()
+        self.landing_pads.clear()
+        
+        # Load walls
+        for wall_data in level_data.get('walls', []):
+            wall = Wall(
+                wall_data['x'],
+                wall_data['y'],
+                wall_data['width'],
+                wall_data['height'],
+                wall_data.get('destructible', False)
+            )
+            self.walls.append(wall)
+            
+        # Load landing pads
+        for pad_data in level_data.get('landing_pads', []):
+            pad = LandingPad(
+                pad_data['x'],
+                pad_data['y'],
+                pad_data.get('width', 80),  # Default 80 wide
+                pad_data.get('height', 20)  # Default 20 tall
+            )
+            self.landing_pads.append(pad)
+            print(f"Added landing pad at ({pad.x}, {pad.y}) with size {pad.width}x{pad.height}")
+            
     def add_wall(self, wall: Wall) -> None:
         self.walls.append(wall)
         
@@ -126,8 +214,8 @@ class World:
                 return True
         return False
         
-    def render(self, screen: pygame.Surface) -> None:
+    def render(self, screen: pygame.Surface, camera_x: float, camera_y: float) -> None:
         for pad in self.landing_pads:
-            pad.render(screen)
+            pad.render(screen, camera_x, camera_y)
         for wall in self.walls:
-            wall.render(screen)
+            wall.render(screen, camera_x, camera_y)

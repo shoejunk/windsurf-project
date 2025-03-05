@@ -25,7 +25,11 @@ class SpriteComponent(Component):
         
     def render(self, screen: pygame.Surface) -> None:
         if not self.entity:
+            print("SpriteComponent has no entity!")
             return
+            
+        print(f"Rendering sprite at ({self.entity.x}, {self.entity.y})")
+        print(f"Sprite size: {self.sprite.get_size()}")
             
         rotated = pygame.transform.rotate(self.sprite, self.rotation)
         if self.flip_x or self.flip_y:
@@ -34,6 +38,7 @@ class SpriteComponent(Component):
         rect = rotated.get_rect()
         rect.center = (self.entity.x, self.entity.y)
         screen.blit(rotated, rect)
+        print("Sprite rendered")
 
 class AnimationComponent(Component):
     def __init__(self):

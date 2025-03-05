@@ -1,0 +1,96 @@
+{
+    "name": "Level 1",
+    "width": 4000,
+    "height": 4000,
+    "walls": [
+        {
+            "x": 0,
+            "y": 0,
+            "width": 4000,
+            "height": 40,
+            "destructible": false
+        },
+        {
+            "x": 0,
+            "y": 0,
+            "width": 40,
+            "height": 4000,
+            "destructible": false
+        },
+        {
+            "x": 3960,
+            "y": 0,
+            "width": 40,
+            "height": 4000,
+            "destructible": false
+        },
+        {
+            "x": 0,
+            "y": 3960,
+            "width": 4000,
+            "height": 40,
+            "destructible": false
+        },
+        {
+            "x": 400,
+            "y": 400,
+            "width": 400,
+            "height": 40,
+            "destructible": true
+        },
+        {
+            "x": 400,
+            "y": 400,
+            "width": 40,
+            "height": 400,
+            "destructible": true
+        },
+        {
+            "x": 1200,
+            "y": 800,
+            "width": 800,
+            "height": 40,
+            "destructible": true
+        },
+        {
+            "x": 2000,
+            "y": 1200,
+            "width": 40,
+            "height": 600,
+            "destructible": true
+        },
+        {
+            "x": 2400,
+            "y": 2000,
+            "width": 1000,
+            "height": 40,
+            "destructible": true
+        }
+    ],
+    "landing_pads": [
+        {
+            "x": 200,
+            "y": 200,
+            "width": 120,
+            "height": 40
+        },
+        {
+            "x": 1000,
+            "y": 600,
+            "width": 120,
+            "height": 40
+        },
+        {
+            "x": 2000,
+            "y": 1000,
+            "width": 120,
+            "height": 40
+        },
+        {
+            "x": 3000,
+            "y": 2000,
+            "width": 120,
+            "height": 40
+        }
+    ]
+}
